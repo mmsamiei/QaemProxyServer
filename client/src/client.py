@@ -1,7 +1,7 @@
 import socket 
 import time
 
-host = socket.gethostname() 
+host = socket.gethostbyname(socket.gethostname()) 
 port = 1995
 buffer_size = 1 * 1024 
 
@@ -12,4 +12,5 @@ print("recived data is : {}".format(data))
 time.sleep(3)
 clientSocket.send("Hello".encode())
 time.sleep(2)
+clientSocket.send("RMD samiei hastam".encode())
 clientSocket.close()

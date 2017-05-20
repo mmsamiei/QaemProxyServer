@@ -46,8 +46,23 @@ class FTPclientThread(threading.Thread):
 				print(cmd)
 				break
 			else:
-				print("Recived: {}".format(cmd))
-		print("getOut!")
+				print("Recived Some Command : {} from{} ".format(cmd,self.addr))
+				try:
+					print(cmd.strip()) # .strip() removes all whitespace at the start and end, including spaces, tabs, newlines and carriage returns.
+					function = getattr(self,cmd[0:4].strip().upper())
+					function(cmd)
+				except Exception:
+					print("Error: cmd is not correct, cmd is {}".format(cmd[0:4].strip()))
+	def RMD(self,cmd):
+		print("RMD is running")
+	def DELE(self,cmd):
+		print("DELE")
+	def RETR(self,cmd):
+		print("RETR")
+	def LIST(self,cmd):
+		print("LIST")
+	def QUIT(self,cmd):
+		print("QUIT")
 
 if __name__ == '__main__':
 	ftp = FTPserver()
