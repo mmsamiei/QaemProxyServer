@@ -1,11 +1,14 @@
 #!/usr/bin/python
 
 import os,socket,threading
+import re
 
 my_ip = socket.gethostbyname(socket.gethostname())
 ftp_control_port = 1995
 max_connection = 5 
 buffer_size = 1 * 1024
+
+ceit_host = socket.gethostbyname('ceit.aut.ac.ir')
 
 
 class FTPserver (threading.Thread):
@@ -14,6 +17,7 @@ class FTPserver (threading.Thread):
 		self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.control_socket.bind((my_ip, ftp_control_port))
 		threading.Thread.__init__(self)
+
 
 	def run(self):
 		self.control_socket.listen(max_connection)
@@ -36,6 +40,9 @@ class FTPclientThread(threading.Thread):
 		self.conn = conn
 		self.addr = addr
 		threading.Thread.__init__(self)
+		self.http_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.http_socket.connect((ceit_host,80))
+
 
 	def run(self):
 		print("Start new from {}".format(self.addr))
@@ -47,22 +54,51 @@ class FTPclientThread(threading.Thread):
 				break
 			else:
 				print("Recived Some Command : {} from{} ".format(cmd,self.addr))
-				try:
-					print(cmd.strip()) # .strip() removes all whitespace at the start and end, including spaces, tabs, newlines and carriage returns.
-					function = getattr(self,cmd[0:4].strip().upper())
-					function(cmd)
-				except Exception:
-					print("Error: cmd is not correct, cmd is {}".format(cmd[0:4].strip()))
+				print(cmd.strip()) # .strip() removes all whitespace at the start and end, including spaces, tabs, newlines and carriage returns.
+				function = getattr(self,cmd[0:4].strip().upper())
+				function(cmd)
+
 	def RMD(self,cmd):
-		print("RMD is running")
+		print("1")
+	
 	def DELE(self,cmd):
-		print("DELE")
+		print("1")		
+	
 	def RETR(self,cmd):
-		print("RETR")
+		print("1")
+	
 	def LIST(self,cmd):
-		print("LIST")
+		print("YES")
+		URL_HEAD = "HEAD /~94131090/CN1_Project_Files/ HTTP/1.1\r\nHost: {}\r\n\r\n".format(ceit_host)
+		URL_GET = "GET /~94131090/CN1_Project_Files/ HTTP/1.1\r\nHost: {}\r\n\r\n".format(ceit_host)
+		self.http_socket.send(URL_GET.encode())
+		result = self.http_socket.recv(buffer_size).decode()
+		http_status = result[9:12]
+		if http_status == "200":
+			content_len = self.get_content_len(result)
+			self.http_socket.send(URL_GET.encode())
+			result = self.http_socket.recv(content_len+1).decode()
+			regex = r'<(.*)>'
+			matchObj = re.search(regex, result, re.M|re.I)
+			print(matchObj.group(0))
+			print(matchObj.group(1))
+			print(matchObj.group(2))
+			
+		else :
+			print("BAD")	
+	
 	def QUIT(self,cmd):
-		print("QUIT")
+		self.conn.send("221 Goodbye.\r\n".encode())
+	
+	def get_content_len(self, result): # !!!
+		a = result.find("Content-Length")+len("Content-Length: ")
+		b = a
+		while True:
+			if(result[b] == '\r'):
+				break
+			b = b + 1
+		i = int(result[a:b])
+		return i
 
 if __name__ == '__main__':
 	ftp = FTPserver()
