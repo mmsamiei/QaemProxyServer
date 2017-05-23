@@ -4,7 +4,7 @@ import os,socket,threading
 import re
 
 my_ip = socket.gethostbyname(socket.gethostname())
-ftp_control_port = 1997
+ftp_control_port = 2011
 max_connection = 5
 buffer_size = 1 * 1024
 
@@ -42,9 +42,6 @@ class FTPclientThread(threading.Thread):
 		threading.Thread.__init__(self)
 		self.http_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.http_socket.connect((ceit_host,80))
-		self.dataAddr = addr[0]
-		self.dataport = ftp_control_port +1 
-
 
 	def run(self):
 		print("Start new from {}".format(self.addr))
@@ -76,28 +73,18 @@ class FTPclientThread(threading.Thread):
 		self.conn.send('200 GET PORT. \r\n'.encode())
 
 	def LIST(self,cmd):
-		print("LIST")
-		URL_HEAD = "HEAD /~94131090/CN1_Project_Files/ HTTP/1.1\r\nHost: {}\r\n\r\n".format(ceit_host)
+		print("HelHel")
 		URL_GET = "GET /~94131090/CN1_Project_Files/ HTTP/1.1\r\nHost: {}\r\n\r\n".format(ceit_host)
 		self.http_socket.send(URL_GET.encode())
-		result = self.reliable_recv(buffer_size).decode() ## must correct size
-		print("!!!!")
+		result = self.my_recv()
 		http_status = result[9:12]
 		if http_status == "200":
-			content_len = self.get_content_len(result)
-			self.http_socket.recv(2*content_len - buffer_size) ## TODO mush correct the size of 2*contentlength
-			self.http_socket.send(URL_GET.encode())
-			#result = self.http_socket.recv(2*content_len).decode()	
-			result = self.reliable_recv(content_len).decode()
 			regex = re.compile("<a.*>(.*)(\..*)</a>")
 			rose = regex.findall(result)
 			sended_msg = ""
 			for ros in rose:
-				sended_msg  = sended_msg + str(rose[0]) + "." + str(rose[1]) + "\r\n"
-			self.start_datasocket()	
-			self.datasocket.send(sended_msg.encode())
-			self.stop_datasocket()
-			self.control_socket.send('226 List Was Sent Everything Is Ok \r\n'.encode())
+				sended_msg  = sended_msg + str(ros[0]) + str(ros[1]) + "\r\n"
+			print(sended_msg)
 
 		else :
 			print("BAD")	
@@ -126,9 +113,14 @@ class FTPclientThread(threading.Thread):
 			bytes_recd = bytes_recd + len(chunk)
 		return chunks
 
-	def start_datasocket(self):
-		self.datasocket  = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.datasocket.connect((self.dataAddr, self.dataport))
+	def my_recv(self):
+		result = self.http_socket.recv(buffer_size).decode()
+		temp_result = result
+		while(len(temp_result) > 0):
+			temp_result = self.http_socket.recv(buffer_size).decode()
+			result += temp_result
+		return result
+
 
 
 if __name__ == '__main__':
