@@ -3,30 +3,74 @@ import time
 import threading
 
 
-host = socket.gethostbyname(socket.gethostname()) 
-port = 2011
+my_ip = socket.gethostbyname(socket.gethostname())
+proxy_ip = my_ip 
+ftp_control_port = 8400
+ftp_data_port = ftp_control_port + 1 
 buffer_size = 1 * 1024 
-
-class Client(threading.Thread):
-
-	def __init__(self):
-		self.clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.clientSocket.connect((host,port)) 
-		print(clientSocket.recv(buffer_size).decode())
-		threading.Thread.__init__(self)
 
 
 
 controllsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-controllsocket.connect((host,port)) 
+controllsocket.connect((proxy_ip,ftp_control_port)) 
+datasocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+datasocket.connect((proxy_ip, ftp_data_port))
 print(controllsocket.recv(buffer_size).decode())
+while True:
 
-datasocket = 
-
-
-controllsocket.send("LIST samiei hastam".encode())
+	cmd = input('\n>>')
 
 
+	controllsocket.send(cmd.encode())
 
-time.sleep(1)
-clientSocket.close()
+	if cmd[0:4].upper() == 'QUIT':
+		print(controllsocket.recv(2048).decode())
+		break;
+
+	elif cmd[0:3].upper() == 'RMD':
+		print(controllsocket.recv(2048).decode())
+
+
+	elif cmd[0:4].upper() == 'DELE':
+		print(controllsocket.recv(2048).decode())
+
+
+	elif cmd[0:4].upper() == 'LIST':
+		print(controllsocket.recv(2048).decode())
+		print(datasocket.recv(2048).decode())
+	
+	elif cmd[0:4].upper() == 'RETR':
+		response = controllsocket.recv(2048).decode()
+		chunks = response.split('*')
+		if(chunks[0] == "BeReady"):
+			print("KHSH")
+			file_name = chunks[1]
+			size = (int) (chunks[2])
+			#file_name = controllsocket.recv(2048).decode()
+			#size = controllsocket.recv(2048).decode()
+			data = datasocket.recv(size)
+			with open("../files/"+file_name, 'wb') as f:
+				f.write(data)
+		else:
+			print(response)
+
+	else:
+		print("You Command is Wrong!")
+
+
+#controllsocket.send("LIST samiei hastam".encode())
+#print(datasocket.recv(2048).decode())
+#time.sleep(1)
+controllsocket.close()
+datasocket.close()
+
+
+
+def recvall(self, http_socket):
+	total_data=bytes()
+	while True:
+		data = self.http_socket.recv(buffer_size)
+		if not data: break
+		total_data = total_data + data
+		print("!")
+	return total_data
