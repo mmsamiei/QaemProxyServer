@@ -4,8 +4,9 @@ import os,socket,threading
 import re
 import ipaddress
 
-my_ip = socket.gethostbyname(socket.gethostname())
-ftp_control_port = 8400
+#my_ip = socket.gethostbyname(socket.gethostname())
+my_ip = "192.168.138.146"
+ftp_control_port = 9900
 ftp_data_port = ftp_control_port + 1
 max_connection = 5
 buffer_size = 1 * 1024
@@ -29,9 +30,7 @@ class FTPserver (threading.Thread):
 		while True:
 				try:
 					conn, addr = self.control_socket.accept()
-					print("1")
 					dataconn, addr = self.data_socket.accept()
-					print("2")
 					client_thread = FTPclientThread(conn, dataconn, addr)
 					client_thread.start()
 				except KeyboardInterrupt:#TODO kill al threads
@@ -63,28 +62,48 @@ class FTPclientThread(threading.Thread):
 			else:
 				print("Recived Some Command : {} from{} ".format(cmd,self.addr))
 				print(cmd.strip()) # .strip() removes all whitespace at the start and end, including spaces, tabs, newlines and carriage returns.
-				#try:
-				function = getattr(self,cmd[0:4].strip().upper())
-				function(cmd)
-				#except Exception as e:
-				#self.conn.send("We Have Not This Method!".encode())
+				try:
+					function = getattr(self,cmd[0:4].strip().upper())
+					function(cmd)
+				except Exception as e:
+					self.conn.send("Some Error!".encode())
+
 	def RMD(self, cmd):
 
+		print("Client request RMD")
 		folder = '../cache'
 		for the_file in os.listdir(folder):
 			file_path = os.path.join(folder, the_file)
 			try:
 				if os.path.isfile(file_path):
-					os.unlink(file_path)
+					os.remove(file_path)
 					self.conn.send("All Files Are removed successfully!".encode())
+					return
 			except Exception as e:
 					self.conn.send("An error is happened in process of delete all fills!".encode())
 					print(e)
 
+		self.conn.send("Cache is Empty!".encode())			
 
-		print("1")
+
+	def PASV(self, cmd):
+		print("Client request LOGIN")
+		usrpas = (cmd[4:].strip())
+		user = usrpas.split(" ")[0]
+		pasw = usrpas.split(" ")[1]
+		print(user)
+		print(pasw)
+		if(user == "root"):
+			if(pasw =="root"):
+				print("SDAD")
+				self.conn.send("True".encode())
+				return
+		self.conn.send("False".encode())
+		return
+
 	
 	def DELE(self, cmd):
+		print("Client request DELE")
 		folder = '../cache'
 		file_name = (cmd[4:].strip())
 		file_path = os.path.join(folder, file_name)	
@@ -96,25 +115,30 @@ class FTPclientThread(threading.Thread):
 
 	
 	def RETR(self, cmd):
-		print("2222")
+
+		print("Client request RETR")
 		folder = '../cache'
 		file_name = (cmd[4:].strip())
 		file_path = os.path.join(folder, file_name)
 		if( not os.path.isfile(file_path)):
+			print("Proxy has not this file")
 			if(self.download_from_server(file_name)):
 				print("I downloaded it!!")
 			else:
+				print("this file is not on server!")
 				self.conn.send("We Have Not This File On File Server!".encode())
 				return
 		#send to client
 		file = open("../cache/" + file_name, 'rb')
 		data = file.read()
+		print(len(data))
 		self.conn.send(("BeReady*{}*{}".format(file_name, str(len(data)))).encode())
 		#self.conn.send(file_name.encode())
 		#self.conn.send(str(len(data)).encode())
 		self.dataconn.send(data)
 	
 	def LIST(self,cmd):
+		print("Client Request List")
 		URL_GET = "GET /~94131090/CN1_Project_Files/ HTTP/1.0\r\nHost: {}\r\n\r\n".format(ceit_host)
 		self.http_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.http_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -122,18 +146,17 @@ class FTPclientThread(threading.Thread):
 		self.http_socket.send(URL_GET.encode())
 		result = self.recvall().decode()
 		http_status = result[9:12]
-		print(result)
 		if http_status == "200":
-			regex = re.compile("<a.*>(.*)(\..*)</a>")
+			regex = re.compile("<a.*>(.*)</a>")
 			rose = regex.findall(result)
 			sended_msg = ""
 			for ros in rose:
-				sended_msg  = sended_msg + str(ros[0]) + str(ros[1]) + "\r\n"
-			print(sended_msg)
+				if(ros != "Description" and ros!="Parent Directory"):
+					print(ros)
+					sended_msg  = sended_msg + str(ros)+ "\r\n"
 			self.conn.send("List Of Files Are Sending!".encode())
 			self.dataconn.send(sended_msg.encode())
 		else:
-			print(result)
 			print("BAD REQUEST!")	
 	
 	def QUIT(self,cmd):
@@ -155,12 +178,11 @@ class FTPclientThread(threading.Thread):
 			data = self.http_socket.recv(buffer_size)
 			if not data: break
 			total_data = total_data + data
-			print("!")
+			print("is downloading")
 		return total_data
 
 
 	def download_from_server(self, file_name):
-		print("SS")
 		file_name = file_name.replace(" ","%20")
 		URL_HEAD = "HEAD /~94131090/CN1_Project_Files/{} HTTP/1.1\r\nHost: {}\r\n\r\n".format(str(file_name), ceit_host)
 		URL_GET = "GET /~94131090/CN1_Project_Files/{} HTTP/1.1\r\nHost: {}\r\n\r\n".format(str(file_name), ceit_host)
@@ -170,13 +192,11 @@ class FTPclientThread(threading.Thread):
 		self.http_socket.send(URL_GET.encode())
 		result = self.recvall()
 		http_status = (int)(result[9:12].decode())
-		print(http_status)
 		if(http_status==200):
-			print("RAstA")
+			print("HTTP REQUEST IS OK")
 			header_border = re.compile(b'\r\n\r\n')
 			parts = (header_border.split(result, 1))
 			data = parts[1]
-			print("HAYHAYHAYHAY")
 			file_name = file_name.replace('%20', ' ')
 			with open("../cache/" + file_name, 'wb') as f:
 			 	f.write(data)
